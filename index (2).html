@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>เปรียบเทียบราคาวัสดุก่อนออก PO</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f5f7f8;--card:#fff;--ink:#16252b;--mute:#667780;--line:#dce3e6;--accent:#0e6b7a;--best:#d9f2e3;--bestink:#0b5a2e;--warn:#fff4d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181c;--card:#18242a;--ink:#e6eef1;--mute:#93a5ad;--line:#2b3b42;--accent:#4cb8c9;--best:#16402b;--bestink:#8fe0b0;--warn:#3d3414}}
+:root[data-theme="dark"]{--bg:#10181c;--card:#18242a;--ink:#e6eef1;--mute:#93a5ad;--line:#2b3b42;--accent:#4cb8c9;--best:#16402b;--bestink:#8fe0b0;--warn:#3d3414}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Sarabun",system-ui,sans-serif;font-size:16px;line-height:1.5}
+main{max-width:1000px;margin:0 auto;padding:20px 14px 48px}
+h1{font-size:1.5rem;margin:0 0 4px}
+p.sub{margin:0 0 18px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{padding:6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-weight:600;font-size:.9rem;color:var(--mute)}
+input{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%;min-width:0}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+th input{font-weight:700;color:var(--ink)}
+td.num{text-align:right;white-space:nowrap}
+td.price input{text-align:right}
+td.best input{background:var(--best);color:var(--bestink);border-color:var(--bestink);font-weight:700}
+.min{font-weight:700}
+.diff{color:var(--mute)}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;padding:8px 14px}
+button.ghost{background:transparent;color:var(--accent)}
+button.x{border:none;background:transparent;color:var(--mute);padding:4px 8px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.sum div{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.sum small{display:block;color:var(--mute)}
+.sum b{font-size:1.2rem}
+.sum .hl{background:var(--best);color:var(--bestink);border-color:var(--bestink)}
+.note{background:var(--warn);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:.9rem;display:none}
+h2{font-size:1.1rem;margin:0 0 10px}
+@media print{.bar,button.x,.noprint{display:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<main>
+<h1>เปรียบเทียบราคาวัสดุก่อนออก PO</h1>
+<p class="sub">ใส่ชื่อร้าน รายการวัสดุ และราคาต่อหน่วย ระบบจะบอกร้านที่ถูกที่สุดและส่วนต่างให้เอง</p>
+
+<div class="card">
+<div class="wrap">
+<table>
+<thead>
+<tr>
+<th style="width:22%">รายการวัสดุ</th>
+<th style="width:8%">จำนวน</th>
+<th style="width:8%">หน่วย</th>
+<th><input id="s0" value="ร้าน A" aria-label="ชื่อร้านที่ 1"></th>
+<th><input id="s1" value="ร้าน B" aria-label="ชื่อร้านที่ 2"></th>
+<th><input id="s2" value="ร้าน C" aria-label="ชื่อร้านที่ 3"></th>
+<th class="num">ราคาต่ำสุด</th>
+<th class="num">ส่วนต่าง</th>
+<th style="width:30px"></th>
+</tr>
+</thead>
+<tbody id="rows"></tbody>
+</table>
+</div>
+<div class="bar">
+<button id="add">+ เพิ่มรายการ</button>
+<button class="ghost" id="print">พิมพ์ / บันทึก PDF</button>
+<button class="ghost" id="clear">ล้างราคาทั้งหมด</button>
+</div>
+<div class="note" id="note"></div>
+</div>
+
+<div class="card">
+<h2>สรุปยอดรวม</h2>
+<div class="sum" id="sum"></div>
+</div>
+</main>
+
+<script>
+(function(){
+  var rows = [
+    {n:"ปูนซีเมนต์",q:100,u:"ถุง",p:[120,115,118]},
+    {n:"ทราย",q:5,u:"คิว",p:[350,380,340]},
+    {n:"",q:"",u:"",p:["","",""]}
+  ];
+  var tb = document.getElementById("rows");
+  var fmt = function(x){ return x.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  var names = function(){ return [0,1,2].map(function(i){ return document.getElementById("s"+i).value || ("ร้าน "+"ABC"[i]); }); };
+  var num = function(v){ var x = parseFloat(v); return isNaN(x) ? null : x; };
+
+  function build(){
+    tb.innerHTML = "";
+    rows.forEach(function(r,i){
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td><input data-i="'+i+'" data-f="n" placeholder="เช่น ปูนซีเมนต์"></td>'+
+        '<td><input data-i="'+i+'" data-f="q" type="number" min="0" inputmode="decimal"></td>'+
+        '<td><input data-i="'+i+'" data-f="u" placeholder="ถุง"></td>'+
+        [0,1,2].map(function(k){ return '<td class="price" id="c'+i+'_'+k+'"><input data-i="'+i+'" data-p="'+k+'" type="number" min="0" step="any" inputmode="decimal" placeholder="บาท"></td>'; }).join("")+
+        '<td class="num min" id="m'+i+'">-</td><td class="num diff" id="d'+i+'">-</td>'+
+        '<td><button class="x" data-del="'+i+'" aria-label="ลบรายการ">✕</button></td>';
+      tb.appendChild(tr);
+      var ins = tr.querySelectorAll("input");
+      ins[0].value = r.n; ins[1].value = r.q; ins[2].value = r.u;
+      for(var k=0;k<3;k++) ins[3+k].value = r.p[k];
+    });
+    calc();
+  }
+
+  function calc(){
+    var nm = names();
+    var totals = [0,0,0], missing = [0,0,0], mix = 0, mixCount = 0, withQty = 0;
+    rows.forEach(function(r,i){
+      var ps = r.p.map(num);
+      var vals = ps.filter(function(x){ return x!==null; });
+      var min = vals.length ? Math.min.apply(null,vals) : null;
+      var max = vals.length ? Math.max.apply(null,vals) : null;
+      for(var k=0;k<3;k++){
+        var cell = document.getElementById("c"+i+"_"+k);
+        cell.classList.toggle("best", ps[k]!==null && vals.length>1 && ps[k]===min);
+      }
+      document.getElementById("m"+i).textContent = min===null ? "-" : fmt(min);
+      document.getElementById("d"+i).textContent = vals.length>1 ? fmt(max-min) : "-";
+      var q = num(r.q);
+      if(q!==null && q>0 && vals.length){
+        withQty++;
+        mix += min*q;
+        for(var k2=0;k2<3;k2++){
+          if(ps[k2]===null) missing[k2]++; else totals[k2] += ps[k2]*q;
+        }
+      }
+    });
+    var complete = [0,1,2].filter(function(k){ return missing[k]===0; });
+    var html = "";
+    if(!withQty){
+      html = '<div><small>ยังไม่มีข้อมูล</small><b>ใส่จำนวนและราคาเพื่อดูยอดรวม</b></div>';
+    } else {
+      for(var k3=0;k3<3;k3++){
+        html += '<div><small>ซื้อทั้งหมดที่ '+esc(nm[k3])+'</small><b>'+fmt(totals[k3])+' บาท</b>'+(missing[k3]?'<small>ขาดราคา '+missing[k3]+' รายการ</small>':'')+'</div>';
+      }
+      html += '<div class="hl"><small>ซื้อรายการละร้านที่ถูกที่สุด</small><b>'+fmt(mix)+' บาท</b></div>';
+      if(complete.length){
+        var bestSingle = Math.min.apply(null, complete.map(function(k){ return totals[k]; }));
+        html += '<div class="hl"><small>ประหยัดเทียบกับร้านเดียวที่ถูกสุด</small><b>'+fmt(bestSingle-mix)+' บาท</b></div>';
+      }
+    }
+    document.getElementById("sum").innerHTML = html;
+    var note = document.getElementById("note");
+    var short = missing.some(function(m){ return m>0; });
+    if(withQty && short){
+      note.style.display = "block";
+      note.textContent = "บางร้านยังไม่ใส่ราคาครบ ยอดรวมของร้านนั้นจึงยังไม่เทียบกันได้เต็มที่";
+    } else note.style.display = "none";
+  }
+
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  tb.addEventListener("input",function(e){
+    var t = e.target, i = t.dataset.i;
+    if(i===undefined) return;
+    if(t.dataset.p!==undefined) rows[i].p[t.dataset.p] = t.value;
+    else rows[i][t.dataset.f] = t.value;
+    calc();
+  });
+  tb.addEventListener("click",function(e){
+    var d = e.target.dataset.del;
+    if(d===undefined) return;
+    rows.splice(d,1);
+    if(!rows.length) rows.push({n:"",q:"",u:"",p:["","",""]});
+    build();
+  });
+  [0,1,2].forEach(function(i){ document.getElementById("s"+i).addEventListener("input",calc); });
+  document.getElementById("add").onclick = function(){ rows.push({n:"",q:"",u:"",p:["","",""]}); build(); };
+  document.getElementById("clear").onclick = function(){ rows = [{n:"",q:"",u:"",p:["","",""]}]; build(); };
+  document.getElementById("print").onclick = function(){ window.print(); };
+  build();
+})();
+</script>
+</body>
+</html>
